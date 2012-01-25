@@ -1,13 +1,16 @@
 from __future__ import with_statement
 from os import path
 from flask import _request_ctx_stack, url_for
+from flask.ext import script
+
 from webassets import Bundle
 from webassets.env import BaseEnvironment, ConfigStorage
 
 
+
 __version__ = (0, 6, 2)
 
-__all__ = ('Environment', 'Bundle',)
+__all__ = ('Environment', 'Bundle', 'ManageAssets')
 
 
 class FlaskConfigStorage(ConfigStorage):
@@ -200,38 +203,22 @@ class Environment(BaseEnvironment):
         app.jinja_env.assets_environment = self
 
 
-try:
-    from flaskext import script
-except ImportError:
-    pass
-else:
-    import argparse
+class ManageAssets(script.Command):
+    """Manage assets."""
+    capture_all_args = True
 
-    class CatchAllParser(object):
-        def parse_known_args(self, app_args):
-            return argparse.Namespace(), app_args
+    def __init__(self, assets_env=None):
+        self.env = assets_env
 
-    class ManageAssets(script.Command):
-        """Manage assets."""
-        capture_all_args = True
+    def run(self, args):
+        """Runs the management script.
+        If ``self.env`` is not defined, it will import it from
+        ``current_app``.
+        """
 
-        def __init__(self, assets_env=None):
-            self.env = assets_env
+        if not self.env:
+            from flask import current_app
+            self.env = current_app.jinja_env.assets_environment
 
-        def create_parser(self, prog):
-            return CatchAllParser()
-
-        def run(self, args):
-            """Runs the management script.
-            If ``self.env`` is not defined, it will import it from
-            ``current_app``.
-            """
-
-            if not self.env:
-                from flask import current_app
-                self.env = current_app.jinja_env.assets_environment
-
-            from webassets import script
-            return script.main(args, env=self.env)
-
-    __all__ = __all__ + ('ManageAssets',)
+        from webassets import script
+        return script.main(args, env=self.env)
